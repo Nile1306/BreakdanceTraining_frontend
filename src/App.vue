@@ -16,50 +16,54 @@
   </div>
 </template>
 
-<style>
 
-body {
-   margin: 0;
-   background: #f0f2f5;
-
-}
-
-
+<style scoped>
 .app {
-  max-width:1200px;
-  width: 100%;
-  min-height: 100vh;
-  margin: 40px auto;
-  padding: 40px;
-  text-align: center;
-
+text-align: center;
 }
 
 h1 {
-  color: #2c3e50;
-  margin-bottom: 24px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-size: 40px;
+  margin-bottom: 16px;
 }
+
 .nav {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 15px;
+width: 100%;
+font-size: 14px;
+margin-top: 20px;
+}
+
+.nav a {
+display: inline-block;
+padding: 0 16px;
+border-left: 1px solid var(--color-border);
+text-decoration: none;
+color: inherit;
+}
+
+.nav a:first-of-type {
+border-left: none;
+}
+
+.nav a.router-link-exact-active {
+color: var(--color-text);
+font-weight: bold;
+}
+
+.nav a.router-link-exact-active:hover {
+background-color: transparent;
 }
 
 .content {
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  min-height: 200px;
-  max-width: 800px;
-    margin: 0 auto;
-   display: flex;
-   justify-content: center;
+margin-top: 24px;
+font-size: 24px
+}
+
+
+@media (min-width: 1024px) {
+.nav {
+font-size: 16px;
+margin-top: 16px;
+}
 }
 </style>
-
-
