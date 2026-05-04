@@ -1,25 +1,17 @@
 <script setup>
-import { ref } from 'vue'
 
-import DrillComponent from './components/DrillComponent.vue'
-import TodoComponent from './components/Todo.vue'
-import StatisticComponent from './components/Statistic.vue'
-
-const page = ref("drill")
 </script>
 
 <template>
   <div class="app">
     <h1>Breakdance Training</h1>
     <div class="nav">
-      <button @click="page='drill'">Drill</button>
-      <button @click="page='todo'">Todo</button>
-      <button @click="page='stats'">Stats</button>
+      <router-link to="/">Drill</router-link>
+      <router-link to="/todo">Todo</router-link>
+      <router-link to="/stats">Stats</router-link>
     </div>
     <div class="content">
-      <DrillComponent v-if="page==='drill'" />
-      <TodoComponent v-if="page==='todo'" />
-      <StatisticComponent v-if="page==='stats'" />
+      <router-view />
     </div>
   </div>
 </template>
@@ -34,8 +26,8 @@ body {
 
 
 .app {
-  max-width:100%;
-  width: 95%;
+  max-width:1200px;
+  width: 100%;
   min-height: 100vh;
   margin: 40px auto;
   padding: 40px;
@@ -57,27 +49,14 @@ h1 {
   border-bottom: 2px solid #eee;
   padding-bottom: 15px;
 }
-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background-color: #ecf0f1;
-  color: #7f8c8d;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.3s ease;
-}
-
-button:hover {
-  background-color: #bdc3c7;
-  color: #2c3e50;
-}
 
 .content {
   padding: 20px;
   background: white;
   border-radius: 8px;
   min-height: 200px;
+  max-width: 800px;
+    margin: 0 auto;
    display: flex;
    justify-content: center;
 }
