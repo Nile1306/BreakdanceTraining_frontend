@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2>Footwork Sessions</h2>
-    <div v-if="session">
+    <div v-for="session in sessions" :key="session.id">
       Work: {{ session.workTime }}s |
       Rest: {{ session.restTime }}s |
       Rounds: {{ session.round }}
@@ -13,13 +13,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const session = ref(null)
+const sessions = ref([])
 
 onMounted(() => {
   const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
-  fetch(`${baseUrl}/session`)
+  fetch(`${baseUrl}/sessions`)
     .then(response => response.json())
-    .then(data => { session.value = data })
+    .then(data => { sessions.value = data })
     .catch(error => console.log('error', error))
 })
 
