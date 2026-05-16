@@ -59,7 +59,6 @@ margin-top: 24px;
 font-size: 24px
 }
 
-
 @media (min-width: 1024px) {
 .nav {
 font-size: 16px;
