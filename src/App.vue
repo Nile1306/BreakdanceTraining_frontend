@@ -9,6 +9,7 @@
       <router-link to="/">Drill</router-link>
       <router-link to="/todo">Todo</router-link>
       <router-link to="/stats">Stats</router-link>
+      <router-link to="/sessions">Sessions</router-link>
     </div>
     <div class="content">
       <router-view />

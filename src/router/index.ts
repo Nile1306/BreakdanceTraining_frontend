@@ -10,6 +10,7 @@ const router = createRouter({
       { path: '/', component: Drill },
       { path: '/todo', component: Todo },
       { path: '/stats', component: Stats },
+      { path: '/sessions', component: () => import('../views/SessionsView.vue') },
 
   /*  {
       path: '/',
