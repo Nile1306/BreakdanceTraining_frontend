@@ -27,20 +27,15 @@
       </div>
     </div>
 
-    <!-- Session Cards -->
-    <div class="session-card" v-for="session in sessions" :key="session.id">
+    <!-- Zuletzt erstellte Session -->
+    <div v-if="sessions.length > 0" class="session-card">
       <div class="session-header">
-        <strong>{{ session.name }}</strong>
-        <div>
-          <button class="btn-secondary" @click="startEdit(session)">Edit</button>
-          <button class="btn-danger" @click="deleteSession(session.id)">Delete</button>
-        </div>
+        <strong>Zuletzt erstellt: {{ sessions[sessions.length-1].name }}</strong>
       </div>
-
       <details>
-        <summary>{{ session.intervals.length }} intervals</summary>
+        <summary>{{ sessions[sessions.length-1].intervals.length }} intervals</summary>
         <ul class="interval-detail">
-          <li v-for="(interval, i) in session.intervals" :key="i"
+          <li v-for="(interval, i) in sessions[sessions.length-1].intervals" :key="i"
               :class="interval.type === 'WORK' ? 'work' : 'rest'">
             {{ interval.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ interval.durationMinutes }} min
           </li>
