@@ -4,132 +4,138 @@ import { ref, onMounted } from 'vue'
 const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
 
 const sessions = ref([])
-const selectedSession = ref(null)
+const activeSession = ref(null)
 
-// countdown before the session actually starts (3.. 2.. 1..)
-const showCountdown = ref(false)
+// 3 second lead-in before the workout actually starts
+const countingDown = ref(false)
 const countdown = ref(3)
 
-// single timer ref — we always clear it before starting a new one
+// one timer for everything — always clear before reusing
+// had a bug once where two intervals ran at the same time and it went haywire
 const timer = ref(null)
 
-const currentIntervalIdx = ref(0)
-const intervalTime = ref(0)  // in seconds
-const intervalType = ref('')
-const running = ref(false)
+const curIdx = ref(0)      // which interval block we're currently on
+const timeLeft = ref(0)    // seconds left in this block
+const curType = ref('')    // 'WORK' or 'REST'
+const isRunning = ref(false)
 
-async function fetchSessions() {
-  const res = await fetch(`${baseUrl}/sessions`)
-  sessions.value = await res.json()
+async function loadSessions() {
+  try {
+    const res = await fetch(`${baseUrl}/sessions`)
+    sessions.value = await res.json()
+  } catch(e) {
+    // probably means the backend isn't running
+    console.error('couldnt fetch sessions:', e)
+  }
 }
 
-async function deleteSession(id) {
+async function removeSession(id) {
+  // TODO: add a confirm dialog before deleting, too easy to fat-finger
   await fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
-  // just reload the list after delete
-  fetchSessions()
+  loadSessions()
 }
 
-function startSession(session) {
-  selectedSession.value = session
-  showCountdown.value = true
+// kicks off the 3-second countdown then starts the actual workout
+function kickoff(sesh) {
+  activeSession.value = sesh
+  countingDown.value = true
   countdown.value = 3
-  currentIntervalIdx.value = 0
-  running.value = false
-  nextCountdown()
+  curIdx.value = 0
+  isRunning.value = false
+  startCountdown()
 }
 
-// ticks down 3..2..1 then kicks off the real intervals
-function nextCountdown() {
-  // clear any leftover timer first just in case
-  timer.value && clearInterval(timer.value)
+function startCountdown() {
+  if (timer.value) clearInterval(timer.value)
 
   timer.value = setInterval(() => {
     countdown.value--
-    if (countdown.value === 0) {
+    if (countdown.value <= 0) {
       clearInterval(timer.value)
-      showCountdown.value = false
-      running.value = true
-      startIntervals()
+      countingDown.value = false
+      isRunning.value = true
+      nextBlock()
     }
   }, 1000)
 }
 
-// recursively moves through each interval until they're all done
-function startIntervals() {
-  if (!selectedSession.value || currentIntervalIdx.value >= selectedSession.value.intervals.length) {
-    // all done
-    running.value = false
+// moves through each work/rest block until the session is done
+// e.g. 2min footwork -> 1min rest -> 3min toprock -> 1min rest...
+function nextBlock() {
+  const sesh = activeSession.value
+  if (!sesh || curIdx.value >= sesh.intervals.length) {
+    isRunning.value = false
+    // TODO: log the completed session somewhere, would be useful for tracking progress
     return
   }
 
-  const interval = selectedSession.value.intervals[currentIntervalIdx.value]
-  intervalType.value = interval.type
-  intervalTime.value = interval.durationMinutes * 60  // convert to seconds
+  const block = sesh.intervals[curIdx.value]
+  curType.value = block.type
+  timeLeft.value = block.durationMinutes * 60  // need seconds, not minutes
 
   timer.value = setInterval(() => {
-    intervalTime.value--
-    if (intervalTime.value <= 0) {
+    timeLeft.value--
+    if (timeLeft.value <= 0) {
       clearInterval(timer.value)
-      currentIntervalIdx.value++
-      startIntervals()  // go to next interval
+      curIdx.value++
+      nextBlock()
     }
   }, 1000)
 }
 
-function stopSession() {
-  timer.value && clearInterval(timer.value)
-  running.value = false
-  showCountdown.value = false
-  selectedSession.value = null
+function stopTraining() {
+  if (timer.value) clearInterval(timer.value)
+  isRunning.value = false
+  countingDown.value = false
+  activeSession.value = null
 }
 
-onMounted(fetchSessions)
+onMounted(loadSessions)
 </script>
 
 <template>
   <div>
     <h2>Sessions</h2>
 
-    <div v-if="sessions.length === 0">No sessions available</div>
+    <div v-if="sessions.length === 0">No sessions yet</div>
 
-    <!-- list all sessions with their intervals -->
-    <div v-for="session in sessions" :key="session.id" class="session-card">
+    <div v-for="sesh in sessions" :key="sesh.id" class="session-card">
       <div>
-        <strong>{{ session.name || 'Session #' + session.id }}</strong>
+        <strong>{{ sesh.name || 'Session #' + sesh.id }}</strong>
         <ul>
-          <li v-for="(interval, idx) in session.intervals || []" :key="idx">
-            {{ interval.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ interval.durationMinutes }} min
+          <li v-for="(block, idx) in sesh.intervals || []" :key="idx">
+            {{ block.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ block.durationMinutes }} min
           </li>
         </ul>
-        <button @click="deleteSession(session.id)">Delete</button>
-        <button @click="startSession(session)">Session auswählen & starten</button>
+        <button @click="removeSession(sesh.id)">Delete</button>
+        <button @click="kickoff(sesh)">Session auswählen & starten</button>
       </div>
     </div>
 
-    <!-- active session display — countdown, running timer, or done message -->
-    <div v-if="selectedSession">
-      <h3>Aktive Session: {{ selectedSession.name || 'Session #' + selectedSession.id }}</h3>
+    <!-- active workout display -->
+    <div v-if="activeSession">
+      <h3>Aktive Session: {{ activeSession.name || 'Session #' + activeSession.id }}</h3>
 
-      <div v-if="showCountdown">
+      <div v-if="countingDown">
         <p>Starte in {{ countdown }}...</p>
       </div>
 
-      <div v-else-if="running">
+      <div v-else-if="isRunning">
         <p>
-          Intervall {{ currentIntervalIdx + 1 }} / {{ selectedSession.intervals.length }}<br>
-          <span v-if="intervalType === 'WORK'">💪 Work</span>
+          Block {{ curIdx + 1 }} / {{ activeSession.intervals.length }}<br>
+          <span v-if="curType === 'WORK'">💪 Work</span>
           <span v-else>😴 Rest</span>
           <br>
-          <!-- format seconds as mm:ss -->
-          Noch {{ Math.floor(intervalTime / 60) }}:{{ (intervalTime % 60).toString().padStart(2, '0') }} min
+          <!-- mm:ss format, padStart so it doesn't jump around -->
+          Noch {{ Math.floor(timeLeft / 60) }}:{{ (timeLeft % 60).toString().padStart(2, '0') }} min
         </p>
       </div>
 
       <div v-else>
-        <p>Session beendet!</p>
+        <p>Session beendet! 🔥</p>
       </div>
 
-      <button @click="stopSession">Stop</button>
+      <button @click="stopTraining">Stop</button>
     </div>
   </div>
 </template>

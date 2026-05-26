@@ -2,34 +2,33 @@
   <div class="sessions-page">
     <h2>Footwork Sessions</h2>
 
-    <!-- form for creating new sessions OR editing existing ones -->
+    <!-- create new or edit existing session -->
     <div class="form-card">
       <h3>{{ editingId ? 'Edit Session' : 'New Session' }}</h3>
       <input v-model="form.name" type="text" placeholder="Session name" class="input-name" />
 
-      <!-- list of intervals the user has added so far -->
+      <!-- the work/rest blocks that make up this session -->
       <div class="intervals-list">
-        <div v-for="(interval, index) in form.intervals" :key="index" class="interval-row">
-          <select v-model="interval.type">
+        <div v-for="(block, index) in form.intervals" :key="index" class="interval-row">
+          <select v-model="block.type">
             <option value="WORK">Work</option>
             <option value="REST">Rest</option>
           </select>
-          <!-- number input, min 1 to avoid 0-minute intervals -->
-          <input v-model.number="interval.durationMinutes" type="number" min="1" placeholder="min" />
+          <input v-model.number="block.durationMinutes" type="number" min="1" placeholder="min" />
           <span>min</span>
-          <button class="btn-remove" @click="removeInterval(index)">✕</button>
+          <button class="btn-remove" @click="dropBlock(index)">✕</button>
         </div>
       </div>
 
-      <button class="btn-add" @click="addInterval">+ Add interval</button>
+      <button class="btn-add" @click="addBlock">+ Add interval</button>
 
       <div class="form-actions">
-        <button class="btn-primary" @click="saveSession">{{ editingId ? 'Update' : 'Create' }}</button>
-        <button v-if="editingId" class="btn-secondary" @click="cancelEdit">Cancel</button>
+        <button class="btn-primary" @click="saveOrUpdate">{{ editingId ? 'Update' : 'Create' }}</button>
+        <button v-if="editingId" class="btn-secondary" @click="resetForm">Cancel</button>
       </div>
     </div>
 
-    <!-- just shows the most recently created session as a quick preview -->
+    <!-- quick preview of the last session that was created -->
     <!-- Zuletzt erstellte Session -->
     <div v-if="sessions.length > 0" class="session-card">
       <div class="session-header">
@@ -38,9 +37,9 @@
       <details>
         <summary>{{ sessions[sessions.length-1].intervals.length }} intervals</summary>
         <ul class="interval-detail">
-          <li v-for="(interval, i) in sessions[sessions.length-1].intervals" :key="i"
-              :class="interval.type === 'WORK' ? 'work' : 'rest'">
-            {{ interval.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ interval.durationMinutes }} min
+          <li v-for="(block, i) in sessions[sessions.length-1].intervals" :key="i"
+              :class="block.type === 'WORK' ? 'work' : 'rest'">
+            {{ block.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ block.durationMinutes }} min
           </li>
         </ul>
       </details>
@@ -56,30 +55,28 @@ const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
 const sessions = ref([])
 const editingId = ref(null)
 
-// form state — reused for both create and edit
+// shared form state for both create and edit flows
 const form = ref({ name: '', intervals: [] })
 
-onMounted(loadSessions)
+onMounted(getSessions)
 
-function loadSessions() {
+function getSessions() {
   fetch(`${baseUrl}/sessions`)
     .then(r => r.json())
-    .then(data => {
-      sessions.value = data
-    })
-    .catch(error => console.log('error loading sessions', error))
+    .then(data => { sessions.value = data })
+    .catch(err => console.error('failed to load sessions:', err))
 }
 
-function addInterval() {
-  // default to WORK with 1 min, user can change it
+// new block defaults to WORK / 1min — user almost always changes the duration anyway
+function addBlock() {
   form.value.intervals.push({ type: 'WORK', durationMinutes: 1 })
 }
 
-function removeInterval(index) {
-  form.value.intervals.splice(index, 1)
+function dropBlock(i) {
+  form.value.intervals.splice(i, 1)
 }
 
-function saveSession() {
+function saveOrUpdate() {
   const method = editingId.value ? 'PUT' : 'POST'
   const url = editingId.value
     ? `${baseUrl}/sessions/${editingId.value}`
@@ -92,30 +89,28 @@ function saveSession() {
   })
     .then(r => r.json())
     .then(() => {
-      // reset form and reload the list
-      cancelEdit()
-      loadSessions()
+      resetForm()
+      getSessions()
     })
-    .catch(error => console.log('save failed', error))
+    .catch(err => console.error('save failed:', err))
 }
 
-// not actually used in the template right now but keeping it for later
-function deleteSession(id) {
-  fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
-    .then(() => loadSessions())
-    .catch(error => console.log('delete error', error))
-}
+// not hooked up in the template yet - will need these once the full list is shown here
+// function nukeSession(id) {
+//   fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
+//     .then(() => getSessions())
+//     .catch(err => console.error('delete failed:', err))
+// }
 
-function startEdit(session) {
-  editingId.value = session.id
-  // spread each interval so we don't mutate the original
-  form.value = {
-    name: session.name,
-    intervals: session.intervals.map(i => ({ ...i }))
-  }
-}
+// function editSession(sesh) {
+//   editingId.value = sesh.id
+//   form.value = {
+//     name: sesh.name,
+//     intervals: sesh.intervals.map(b => ({ ...b }))  // spread so we don't mutate the cached list
+//   }
+// }
 
-function cancelEdit() {
+function resetForm() {
   editingId.value = null
   form.value = { name: '', intervals: [] }
 }
