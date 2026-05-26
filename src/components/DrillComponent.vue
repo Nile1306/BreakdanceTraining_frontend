@@ -4,42 +4,43 @@
 
     <!-- create new or edit existing session -->
     <div class="form-card">
-      <h3>{{ editingId ? 'Edit Session' : 'New Session' }}</h3>
-      <input v-model="form.name" type="text" placeholder="Session name" class="input-name" />
+      <h3>{{ editTarget ? 'Edit Session' : 'New Session' }}</h3>
+      <input v-model="draftSesh.name" type="text" placeholder="Session name" class="input-name" />
 
-      <!-- the work/rest blocks that make up this session -->
       <div class="intervals-list">
-        <div v-for="(block, index) in form.intervals" :key="index" class="interval-row">
-          <select v-model="block.type">
+        <div v-for="(round, index) in draftSesh.intervals" :key="index" class="interval-row">
+          <select v-model="round.type">
             <option value="WORK">Work</option>
             <option value="REST">Rest</option>
           </select>
-          <input v-model.number="block.durationMinutes" type="number" min="1" placeholder="min" />
+          <input v-model.number="round.durationMinutes" type="number" min="1" placeholder="min" />
           <span>min</span>
-          <button class="btn-remove" @click="dropBlock(index)">✕</button>
+          <button class="btn-remove" @click="removeAt(index)">✕</button>
         </div>
       </div>
 
-      <button class="btn-add" @click="addBlock">+ Add interval</button>
+      <button class="btn-add" @click="appendRound">+ Add interval</button>
+
+      <!-- inline validation error -->
+      <p v-if="formErr" class="form-err">{{ formErr }}</p>
 
       <div class="form-actions">
-        <button class="btn-primary" @click="saveOrUpdate">{{ editingId ? 'Update' : 'Create' }}</button>
-        <button v-if="editingId" class="btn-secondary" @click="resetForm">Cancel</button>
+        <button class="btn-primary" @click="submitSesh">{{ editTarget ? 'Update' : 'Create' }}</button>
+        <button v-if="editTarget" class="btn-secondary" @click="clearDraft">Cancel</button>
       </div>
     </div>
 
-    <!-- quick preview of the last session that was created -->
-    <!-- Zuletzt erstellte Session -->
-    <div v-if="sessions.length > 0" class="session-card">
+    <!-- Zuletzt erstellte Session — just a quick preview at the bottom -->
+    <div v-if="drills.length > 0" class="session-card">
       <div class="session-header">
-        <strong>Zuletzt erstellt: {{ sessions[sessions.length-1].name }}</strong>
+        <strong>Zuletzt erstellt: {{ drills[drills.length-1].name }}</strong>
       </div>
       <details>
-        <summary>{{ sessions[sessions.length-1].intervals.length }} intervals</summary>
+        <summary>{{ drills[drills.length-1].intervals.length }} intervals</summary>
         <ul class="interval-detail">
-          <li v-for="(block, i) in sessions[sessions.length-1].intervals" :key="i"
-              :class="block.type === 'WORK' ? 'work' : 'rest'">
-            {{ block.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ block.durationMinutes }} min
+          <li v-for="(round, i) in drills[drills.length-1].intervals" :key="i"
+              :class="round.type === 'WORK' ? 'work' : 'rest'">
+            {{ round.type === 'WORK' ? '💪 Work' : '😴 Rest' }}: {{ round.durationMinutes }} min
           </li>
         </ul>
       </details>
@@ -52,67 +53,86 @@ import { ref, onMounted } from 'vue'
 
 const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
 
-const sessions = ref([])
-const editingId = ref(null)
+const drills = ref([])
+const editTarget = ref(null)   // null = new session, id = editing existing
+const draftSesh = ref({ name: '', intervals: [] })
+const formErr = ref('')        // inline validation msg, auto-clears
 
-// shared form state for both create and edit flows
-const form = ref({ name: '', intervals: [] })
+onMounted(pullDrills)
 
-onMounted(getSessions)
-
-function getSessions() {
+function pullDrills() {
   fetch(`${baseUrl}/sessions`)
     .then(r => r.json())
-    .then(data => { sessions.value = data })
-    .catch(err => console.error('failed to load sessions:', err))
+    .then(data => { drills.value = data })
+    .catch(err => console.error('pullDrills failed:', err))
 }
 
-// new block defaults to WORK / 1min — user almost always changes the duration anyway
-function addBlock() {
-  form.value.intervals.push({ type: 'WORK', durationMinutes: 1 })
+// auto-alternates WORK/REST based on whatever the last block was
+// most footwork sessions go work->rest->work->rest anyway
+function appendRound() {
+  const lastType = draftSesh.value.intervals.at(-1)?.type
+  const nextType = lastType === 'WORK' ? 'REST' : 'WORK'
+  draftSesh.value.intervals.push({ type: nextType, durationMinutes: 1 })
 }
 
-function dropBlock(i) {
-  form.value.intervals.splice(i, 1)
+function removeAt(i) {
+  draftSesh.value.intervals.splice(i, 1)
 }
 
-function saveOrUpdate() {
-  const method = editingId.value ? 'PUT' : 'POST'
-  const url = editingId.value
-    ? `${baseUrl}/sessions/${editingId.value}`
+function submitSesh() {
+  if (!draftSesh.value.name.trim()) {
+    showErr('give the session a name first')
+    return
+  }
+  if (draftSesh.value.intervals.length === 0) {
+    showErr('add at least one interval')
+    return
+  }
+  // a session with only rest blocks makes no sense
+  const hasWork = draftSesh.value.intervals.some(r => r.type === 'WORK')
+  if (!hasWork) {
+    showErr("can't have a session with only rest blocks lol")
+    return
+  }
+
+  const method = editTarget.value ? 'PUT' : 'POST'
+  const url = editTarget.value
+    ? `${baseUrl}/sessions/${editTarget.value}`
     : `${baseUrl}/sessions`
 
   fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(form.value)
+    body: JSON.stringify(draftSesh.value)
   })
     .then(r => r.json())
     .then(() => {
-      resetForm()
-      getSessions()
+      clearDraft()
+      pullDrills()
     })
-    .catch(err => console.error('save failed:', err))
+    .catch(err => console.error('submitSesh error:', err))
 }
 
-// not hooked up in the template yet - will need these once the full list is shown here
-// function nukeSession(id) {
+function showErr(msg) {
+  formErr.value = msg
+  setTimeout(() => formErr.value = '', 3000)
+}
+
+// not in the template yet - keeping for when the full drill list gets edit/delete buttons
+// function nukeDrill(id) {
 //   fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
-//     .then(() => getSessions())
-//     .catch(err => console.error('delete failed:', err))
+//     .then(() => pullDrills())
 // }
 
-// function editSession(sesh) {
-//   editingId.value = sesh.id
-//   form.value = {
-//     name: sesh.name,
-//     intervals: sesh.intervals.map(b => ({ ...b }))  // spread so we don't mutate the cached list
-//   }
+// function loadIntoForm(sesh) {
+//   editTarget.value = sesh.id
+//   draftSesh.value = { name: sesh.name, intervals: sesh.intervals.map(r => ({ ...r })) }
 // }
 
-function resetForm() {
-  editingId.value = null
-  form.value = { name: '', intervals: [] }
+function clearDraft() {
+  editTarget.value = null
+  draftSesh.value = { name: '', intervals: [] }
+  formErr.value = ''
 }
 </script>
 
@@ -165,6 +185,12 @@ function resetForm() {
   margin-top: 0.75rem;
   display: flex;
   gap: 0.5rem;
+}
+
+.form-err {
+  color: #f87171;
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
 }
 
 .session-header {
