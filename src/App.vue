@@ -1,10 +1,11 @@
 <script setup>
-
+// nothing needed here at the app level, router handles everything
 </script>
 
 <template>
   <div class="app">
     <h1>Breakdance Training</h1>
+    <!-- main nav -->
     <div class="nav">
       <router-link to="/">Drill</router-link>
       <router-link to="/todo">Todo</router-link>

@@ -2,13 +2,19 @@
 import { ref, onMounted } from 'vue'
 
 const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
+
 const sessions = ref([])
 const selectedSession = ref(null)
+
+// countdown before the session actually starts (3.. 2.. 1..)
 const showCountdown = ref(false)
 const countdown = ref(3)
+
+// single timer ref — we always clear it before starting a new one
 const timer = ref(null)
+
 const currentIntervalIdx = ref(0)
-const intervalTime = ref(0)
+const intervalTime = ref(0)  // in seconds
 const intervalType = ref('')
 const running = ref(false)
 
@@ -19,6 +25,7 @@ async function fetchSessions() {
 
 async function deleteSession(id) {
   await fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
+  // just reload the list after delete
   fetchSessions()
 }
 
@@ -31,8 +38,11 @@ function startSession(session) {
   nextCountdown()
 }
 
+// ticks down 3..2..1 then kicks off the real intervals
 function nextCountdown() {
+  // clear any leftover timer first just in case
   timer.value && clearInterval(timer.value)
+
   timer.value = setInterval(() => {
     countdown.value--
     if (countdown.value === 0) {
@@ -44,20 +54,24 @@ function nextCountdown() {
   }, 1000)
 }
 
+// recursively moves through each interval until they're all done
 function startIntervals() {
   if (!selectedSession.value || currentIntervalIdx.value >= selectedSession.value.intervals.length) {
+    // all done
     running.value = false
     return
   }
+
   const interval = selectedSession.value.intervals[currentIntervalIdx.value]
   intervalType.value = interval.type
-  intervalTime.value = interval.durationMinutes * 60
+  intervalTime.value = interval.durationMinutes * 60  // convert to seconds
+
   timer.value = setInterval(() => {
     intervalTime.value--
     if (intervalTime.value <= 0) {
       clearInterval(timer.value)
       currentIntervalIdx.value++
-      startIntervals()
+      startIntervals()  // go to next interval
     }
   }, 1000)
 }
@@ -75,7 +89,10 @@ onMounted(fetchSessions)
 <template>
   <div>
     <h2>Sessions</h2>
+
     <div v-if="sessions.length === 0">No sessions available</div>
+
+    <!-- list all sessions with their intervals -->
     <div v-for="session in sessions" :key="session.id" class="session-card">
       <div>
         <strong>{{ session.name || 'Session #' + session.id }}</strong>
@@ -89,23 +106,29 @@ onMounted(fetchSessions)
       </div>
     </div>
 
+    <!-- active session display — countdown, running timer, or done message -->
     <div v-if="selectedSession">
       <h3>Aktive Session: {{ selectedSession.name || 'Session #' + selectedSession.id }}</h3>
+
       <div v-if="showCountdown">
         <p>Starte in {{ countdown }}...</p>
       </div>
+
       <div v-else-if="running">
         <p>
           Intervall {{ currentIntervalIdx + 1 }} / {{ selectedSession.intervals.length }}<br>
           <span v-if="intervalType === 'WORK'">💪 Work</span>
           <span v-else>😴 Rest</span>
           <br>
+          <!-- format seconds as mm:ss -->
           Noch {{ Math.floor(intervalTime / 60) }}:{{ (intervalTime % 60).toString().padStart(2, '0') }} min
         </p>
       </div>
+
       <div v-else>
         <p>Session beendet!</p>
       </div>
+
       <button @click="stopSession">Stop</button>
     </div>
   </div>

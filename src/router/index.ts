@@ -4,18 +4,19 @@ import Drill from '../components/DrillComponent.vue'
 import Todo from '../components/Todo.vue'
 import Stats from '../components/Statistic.vue'
 
+// sessions is lazy-loaded so it doesn't bloat the initial bundle
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-      { path: '/', component: Drill },
-      { path: '/todo', component: Todo },
-      { path: '/stats', component: Stats },
-      { path: '/sessions', component: () => import('../views/SessionsView.vue') },
+    { path: '/', component: Drill },
+    { path: '/todo', component: Todo },
+    { path: '/stats', component: Stats },
+    { path: '/sessions', component: () => import('../views/SessionsView.vue') },
 
-  /*  {
+    /*  old home/about routes from the vue template — not using them
+    {
       path: '/',
       name: 'home',
-
      // component: HomeView,
     },
     {

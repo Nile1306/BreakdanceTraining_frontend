@@ -2,17 +2,19 @@
   <div class="sessions-page">
     <h2>Footwork Sessions</h2>
 
-    <!-- Create / Edit Form -->
+    <!-- form for creating new sessions OR editing existing ones -->
     <div class="form-card">
       <h3>{{ editingId ? 'Edit Session' : 'New Session' }}</h3>
       <input v-model="form.name" type="text" placeholder="Session name" class="input-name" />
 
+      <!-- list of intervals the user has added so far -->
       <div class="intervals-list">
         <div v-for="(interval, index) in form.intervals" :key="index" class="interval-row">
           <select v-model="interval.type">
             <option value="WORK">Work</option>
             <option value="REST">Rest</option>
           </select>
+          <!-- number input, min 1 to avoid 0-minute intervals -->
           <input v-model.number="interval.durationMinutes" type="number" min="1" placeholder="min" />
           <span>min</span>
           <button class="btn-remove" @click="removeInterval(index)">✕</button>
@@ -27,6 +29,7 @@
       </div>
     </div>
 
+    <!-- just shows the most recently created session as a quick preview -->
     <!-- Zuletzt erstellte Session -->
     <div v-if="sessions.length > 0" class="session-card">
       <div class="session-header">
@@ -49,8 +52,11 @@
 import { ref, onMounted } from 'vue'
 
 const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
+
 const sessions = ref([])
 const editingId = ref(null)
+
+// form state — reused for both create and edit
 const form = ref({ name: '', intervals: [] })
 
 onMounted(loadSessions)
@@ -58,11 +64,14 @@ onMounted(loadSessions)
 function loadSessions() {
   fetch(`${baseUrl}/sessions`)
     .then(r => r.json())
-    .then(data => { sessions.value = data })
-    .catch(error => console.log('error', error))
+    .then(data => {
+      sessions.value = data
+    })
+    .catch(error => console.log('error loading sessions', error))
 }
 
 function addInterval() {
+  // default to WORK with 1 min, user can change it
   form.value.intervals.push({ type: 'WORK', durationMinutes: 1 })
 }
 
@@ -72,7 +81,9 @@ function removeInterval(index) {
 
 function saveSession() {
   const method = editingId.value ? 'PUT' : 'POST'
-  const url = editingId.value ? `${baseUrl}/sessions/${editingId.value}` : `${baseUrl}/sessions`
+  const url = editingId.value
+    ? `${baseUrl}/sessions/${editingId.value}`
+    : `${baseUrl}/sessions`
 
   fetch(url, {
     method,
@@ -80,18 +91,24 @@ function saveSession() {
     body: JSON.stringify(form.value)
   })
     .then(r => r.json())
-    .then(() => { cancelEdit(); loadSessions() })
-    .catch(error => console.log('error', error))
+    .then(() => {
+      // reset form and reload the list
+      cancelEdit()
+      loadSessions()
+    })
+    .catch(error => console.log('save failed', error))
 }
 
+// not actually used in the template right now but keeping it for later
 function deleteSession(id) {
   fetch(`${baseUrl}/sessions/${id}`, { method: 'DELETE' })
     .then(() => loadSessions())
-    .catch(error => console.log('error', error))
+    .catch(error => console.log('delete error', error))
 }
 
 function startEdit(session) {
   editingId.value = session.id
+  // spread each interval so we don't mutate the original
   form.value = {
     name: session.name,
     intervals: session.intervals.map(i => ({ ...i }))
@@ -149,7 +166,11 @@ function cancelEdit() {
 
 .interval-row input { width: 60px; }
 
-.form-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+.form-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
 
 .session-header {
   display: flex;
