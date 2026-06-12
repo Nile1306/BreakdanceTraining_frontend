@@ -25,3 +25,20 @@ describe('Todo.vue', () => {
   })
 
 })
+test('deletes a task', async () => {
+  const wrapper = mount(Todo)
+
+  const input = wrapper.find('input')
+
+  await input.setValue('Practice Freeze')
+
+  await wrapper.find('button').trigger('click')
+
+  expect(wrapper.text()).toContain('Practice Freeze')
+
+  const deleteButton = wrapper.find('.btn-danger')
+
+  await deleteButton.trigger('click')
+
+  expect(wrapper.text()).not.toContain('Practice Freeze')
+})
