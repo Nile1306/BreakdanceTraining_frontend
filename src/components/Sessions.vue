@@ -283,6 +283,35 @@ function finishSession() {
 
   clearInterval(timer)
 
+  const history =
+    JSON.parse(
+      localStorage.getItem(
+        'activityHistory'
+      ) || '[]'
+    )
+
+  history.push({
+
+    date:
+      new Date()
+        .toLocaleDateString('de-DE'),
+
+    type: 'SESSION',
+
+    name:
+      activeSession.value.name,
+
+    intervals:
+      activeSession.value
+        .intervals.length
+
+  })
+
+  localStorage.setItem(
+    'activityHistory',
+    JSON.stringify(history)
+  )
+
   alert(
     'Session completed successfully!'
   )

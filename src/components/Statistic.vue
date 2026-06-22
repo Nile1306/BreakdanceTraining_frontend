@@ -1,80 +1,160 @@
 <script setup>
-import { ref, onMounted, onActivated, computed } from 'vue'
-const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
-const stats = ref([])
-const totalSessions = computed(() =>
-  stats.value.reduce((sum, day) => sum + day.count, 0)
+import {
+  ref,
+  computed,
+  onMounted,
+  onActivated
+} from 'vue'
+
+const activities = ref([])
+
+const totalActivities = computed(() =>
+  activities.value.length
 )
-async function loadData() {
-  try {
-    const res = await fetch(`${baseUrl}/sessions`)
-    const data = await res.json()
-    const grouped = {}
-    data.forEach(session => {
-      const date = session.date
-      if (!grouped[date]) {
-        grouped[date] = 0
-      } grouped[date]++
-    })
-    stats.value = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).map(date => ({date,count: grouped[date]
-      }))
-  } catch (error) {
-    console.error('Failed to load statistics:', error)
-  }
+
+const groupedActivities = computed(() => {
+
+  const grouped = {}
+
+  activities.value.forEach(activity => {
+
+    if (!grouped[activity.date]) {
+      grouped[activity.date] = []
+    }
+
+    grouped[activity.date].push(activity)
+  })
+
+  return Object.entries(grouped)
+    .sort(
+      (a, b) =>
+        new Date(
+          b[0].split('.').reverse().join('-')
+        ) -
+        new Date(
+          a[0].split('.').reverse().join('-')
+        )
+    )
+})
+
+function loadData() {
+
+  activities.value =
+    JSON.parse(
+      localStorage.getItem(
+        'activityHistory'
+      ) || '[]'
+    )
 }
+
 onMounted(loadData)
+
 onActivated(loadData)
 </script>
 
 <template>
+
   <div class="statistics-page">
-    <h2>Training Statistics</h2>
+
+    <h2>
+      Training Statistics
+    </h2>
 
     <div class="stats-card">
+
       <div class="stats-row">
-        <span>Total Sessions</span>
-        <span class="stats-count">
-          {{ totalSessions }}
+
+        <span>
+          Total Activities
         </span>
+
+        <span class="stats-count">
+          {{ totalActivities }}
+        </span>
+
       </div>
+
     </div>
 
     <div
-      v-if="stats.length === 0"
+      v-if="
+        activities.length === 0
+      "
       class="stats-card empty-card"
     >
-      No data available
+      No activity recorded yet
     </div>
 
     <div
-      v-for="day in stats"
-      :key="day.date"
+      v-for="
+        [date, items]
+        in groupedActivities
+      "
+      :key="date"
       class="stats-card"
     >
-      <div class="stats-row">
-        <span class="stats-date">
-          {{ day.date }}
-        </span>
 
-        <span class="stats-count">
-          {{ day.count }} sessions
-        </span>
+      <div class="date-header">
+
+        {{ date }}
+
       </div>
+
+      <div
+        v-for="(item, index) in items"
+        :key="index"
+        class="activity-item"
+      >
+
+        <template
+          v-if="
+            item.type ===
+            'SESSION'
+          "
+        >
+
+          ✓
+          {{ item.name }}
+
+          <span
+            class="activity-detail"
+          >
+            (
+            {{ item.intervals }}
+            intervals
+            )
+          </span>
+
+        </template>
+
+        <template
+          v-else
+        >
+
+          ✓
+          {{ item.name }}
+
+        </template>
+
+      </div>
+
     </div>
+
   </div>
+
 </template>
 
 <style scoped>
 .statistics-page {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 1rem;
 }
 
 .stats-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
+  background: #181c24;
+  border: 1px solid #2b313d;
+  border-radius: 12px;
   padding: 1rem;
   margin-bottom: 1rem;
 }
@@ -85,17 +165,35 @@ onActivated(loadData)
   align-items: center;
 }
 
-.stats-date {
-  font-weight: 600;
-}
-
 .stats-count {
   color: #f97316;
-  font-weight: 600;
+  font-weight: bold;
+}
+
+.date-header {
+  color: #f97316;
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+}
+
+.activity-item {
+  color: white;
+  padding: 8px 0;
+  border-bottom: 1px solid #2b313d;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-detail {
+  color: #9ca3af;
 }
 
 .empty-card {
   text-align: center;
-  color: #888;
+  color: #9ca3af;
 }
 </style>
+

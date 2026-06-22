@@ -1,31 +1,80 @@
 <script setup>
 import { ref } from 'vue'
 
+const days = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday'
+]
+
 const tasks = ref([])
-const newTask = ref("")
+
+const newTask = ref('')
+
+const selectedDay = ref('Monday')
 
 function addTask() {
-  if (newTask.value.trim() !== "") {
-    tasks.value.push({
-      id: Date.now(),
-      name: newTask.value,
-      done: false
-    })
-    newTask.value = ""
+
+  if (newTask.value.trim() === '') {
+    return
   }
+
+  tasks.value.push({
+    id: Date.now(),
+    name: newTask.value,
+    day: selectedDay.value,
+    done: false
+  })
+
+  newTask.value = ''
+}
+
+function toggleTask(task) {
+
+  task.done = !task.done
+
+  if (!task.done) {
+    return
+  }
+
+  const history = JSON.parse(
+    localStorage.getItem('activityHistory') || '[]'
+  )
+
+  history.push({
+    date: new Date().toLocaleDateString('de-DE'),
+    type: 'TODO',
+    name: task.name
+  })
+
+  localStorage.setItem(
+    'activityHistory',
+    JSON.stringify(history)
+  )
 }
 
 function deleteTask(id) {
-  tasks.value = tasks.value.filter(task => task.id !== id)
+
+  tasks.value =
+    tasks.value.filter(
+      task => task.id !== id
+    )
 }
 </script>
 
 <template>
   <div class="todo-page">
-    <h2>Todo List</h2>
+
+    <h2>Weekly Todo List</h2>
 
     <div class="todo-card">
+
       <div class="todo-form">
+
         <input
           v-model="newTask"
           class="input-task"
@@ -33,71 +82,122 @@ function deleteTask(id) {
           @keyup.enter="addTask"
         />
 
+        <select
+          v-model="selectedDay"
+          class="day-select"
+        >
+          <option
+            v-for="day in days"
+            :key="day"
+            :value="day"
+          >
+            {{ day }}
+          </option>
+        </select>
+
         <button
           class="btn-primary"
           @click="addTask"
         >
           Add
         </button>
+
       </div>
+
     </div>
 
     <div
-      v-for="task in tasks"
-      :key="task.id"
-      class="task-card"
+      v-for="day in days"
+      :key="day"
+      class="day-section"
     >
-      <div class="task-content">
-        <label class="task-label">
-          <input
-            type="checkbox"
-            v-model="task.done"
-          />
 
-          <span :class="{ done: task.done }">
-            {{ task.name }}
-          </span>
-        </label>
+      <h3>{{ day }}</h3>
 
-        <button
-          class="btn-danger"
-          @click="deleteTask(task.id)"
-        >
-          Delete
-        </button>
+      <div
+        v-for="task in tasks.filter(
+          t => t.day === day
+        )"
+        :key="task.id"
+        class="task-card"
+      >
+
+        <div class="task-content">
+
+          <label class="task-label">
+
+            <input
+              type="checkbox"
+              :checked="task.done"
+              @change="toggleTask(task)"
+            />
+
+            <span
+              :class="{ done: task.done }"
+            >
+              {{ task.name }}
+            </span>
+
+          </label>
+
+          <button
+            class="btn-danger"
+            @click="deleteTask(task.id)"
+          >
+            Delete
+          </button>
+
+        </div>
+
       </div>
+
     </div>
+
   </div>
 </template>
 
 <style scoped>
 .todo-page {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
 }
 
 .todo-card,
 .task-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
+  background: #181c24;
+  border: 1px solid #2b313d;
+  border-radius: 12px;
   padding: 1rem;
   margin-bottom: 1rem;
 }
 
 .todo-form {
   display: flex;
-  gap: 0.75rem;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.input-task,
+.day-select {
+  background: #222834;
+  border: 1px solid #384152;
+  border-radius: 8px;
+  color: white;
+  padding: 12px;
 }
 
 .input-task {
   flex: 1;
-  padding: 0.6rem;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: white;
+}
+
+.day-section {
+  margin-top: 2rem;
+}
+
+.day-section h3 {
+  color: #f97316;
+  margin-bottom: 1rem;
 }
 
 .task-content {
@@ -109,37 +209,31 @@ function deleteTask(id) {
 .task-label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
+  color: white;
 }
 
 .done {
   text-decoration: line-through;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .btn-primary {
   background: #f97316;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 12px 18px;
+  border-radius: 8px;
   cursor: pointer;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
 }
 
 .btn-danger {
   background: #dc2626;
   color: white;
   border: none;
-  padding: 0.45rem 0.9rem;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border-radius: 8px;
   cursor: pointer;
 }
-
-.btn-danger:hover {
-  opacity: 0.9;
-}
 </style>
+
