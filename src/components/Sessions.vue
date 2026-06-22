@@ -2,12 +2,19 @@
   <div class="sessions-page">
     <h2>Sessions</h2>
 
-    <div v-if="activeSession" class="timer-card">
-      <h3>{{ activeSession.name }}</h3>
+    <div
+      v-if="activeSession"
+      class="timer-card"
+    >
+      <h3>
+        {{ activeSession.name }}
+      </h3>
 
       <div class="phase">
         Current Phase:
-        {{ currentInterval?.type }}
+        <strong>
+          {{ currentInterval?.type }}
+        </strong>
       </div>
 
       <div class="timer">
@@ -15,6 +22,7 @@
       </div>
 
       <div class="button-group">
+
         <button
           v-if="isRunning"
           class="btn-secondary"
@@ -44,26 +52,30 @@
         >
           End Session
         </button>
+
       </div>
     </div>
 
     <div
-      class="session-card"
       v-for="session in sessions"
       :key="session.id"
+      class="session-card"
     >
       <div class="session-header">
+
         <div>
           <div class="session-title">
             {{ session.name }}
           </div>
 
           <div class="session-info">
-            {{ session.intervals.length }} intervals
+            {{ session.intervals.length }}
+            intervals
           </div>
         </div>
 
         <div class="button-group">
+
           <button
             class="btn-primary"
             @click="startSession(session)"
@@ -77,21 +89,27 @@
           >
             Delete
           </button>
+
         </div>
       </div>
 
       <details>
-        <summary>Show Intervals</summary>
+        <summary>
+          Show Intervals
+        </summary>
 
         <ul class="interval-list">
+
           <li
-            v-for="(interval, i) in session.intervals"
-            :key="i"
+            v-for="(interval, index) in session.intervals"
+            :key="index"
           >
             {{ interval.type }}
             -
-            {{ interval.durationMinutes }} sec
+            {{ interval.durationMinutes }}
+            sec
           </li>
+
         </ul>
       </details>
     </div>
@@ -99,9 +117,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted
+} from 'vue'
 
-const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
+const baseUrl =
+  import.meta.env.VITE_BACKEND_BASE_URL
 
 const sessions = ref([])
 
@@ -115,26 +138,48 @@ const isRunning = ref(false)
 
 let timer = null
 
+onMounted(loadSessions)
+
 const currentInterval = computed(() => {
-  if (!activeSession.value) return null
+
+  if (!activeSession.value) {
+    return null
+  }
 
   return activeSession.value.intervals[
     currentIntervalIndex.value
   ]
 })
 
-onMounted(loadSessions)
+async function loadSessions() {
 
-function loadSessions() {
-  fetch(`${baseUrl}/sessions`)
-    .then(r => r.json())
-    .then(data => {
-      sessions.value = data
-    })
-    .catch(console.error)
+  try {
+
+    const response = await fetch(
+      `${baseUrl}/sessions`
+    )
+
+    sessions.value =
+      await response.json()
+
+  } catch (error) {
+
+    console.error(error)
+
+  }
 }
 
 function startSession(session) {
+
+  if (
+    !session.intervals ||
+    session.intervals.length === 0
+  ) {
+    alert(
+      'This session has no intervals.'
+    )
+    return
+  }
 
   clearInterval(timer)
 
@@ -143,7 +188,8 @@ function startSession(session) {
   currentIntervalIndex.value = 0
 
   remainingSeconds.value =
-    session.intervals[0].durationMinutes
+    session.intervals[0]
+      .durationMinutes
 
   isRunning.value = true
 
@@ -152,13 +198,19 @@ function startSession(session) {
 
 function runTimer() {
 
+  clearInterval(timer)
+
   timer = setInterval(() => {
 
-    if (!isRunning.value) return
+    if (!isRunning.value) {
+      return
+    }
 
     remainingSeconds.value--
 
-    if (remainingSeconds.value <= 0) {
+    if (
+      remainingSeconds.value <= 0
+    ) {
 
       currentIntervalIndex.value++
 
@@ -182,10 +234,12 @@ function runTimer() {
 }
 
 function pauseSession() {
+
   isRunning.value = false
 }
 
 function continueSession() {
+
   isRunning.value = true
 }
 
@@ -199,7 +253,9 @@ function restartSession() {
     return
   }
 
-  startSession(activeSession.value)
+  startSession(
+    activeSession.value
+  )
 }
 
 function endSession() {
@@ -240,32 +296,51 @@ function finishSession() {
   isRunning.value = false
 }
 
-function deleteSession(id) {
+async function deleteSession(id) {
 
-  fetch(
-    `${baseUrl}/sessions/${id}`,
-    {
-      method: 'DELETE'
-    }
-  )
-  .then(() => loadSessions())
+  if (
+    !confirm(
+      'Delete this session?'
+    )
+  ) {
+    return
+  }
+
+  try {
+
+    await fetch(
+      `${baseUrl}/sessions/${id}`,
+      {
+        method: 'DELETE'
+      }
+    )
+
+    loadSessions()
+
+  } catch (error) {
+
+    console.error(error)
+
+  }
 }
 </script>
 
 <style scoped>
 .sessions-page {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 1rem;
 }
 
-.session-card,
-.timer-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
+.timer-card,
+.session-card {
+  background: #181c24;
+  border: 1px solid #2b313d;
+  border-radius: 12px;
   padding: 1rem;
   margin-bottom: 1rem;
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.25);
 }
 
 .session-header {
@@ -277,25 +352,30 @@ function deleteSession(id) {
 .session-title {
   font-size: 1.1rem;
   font-weight: 600;
+  color: white;
 }
 
 .session-info {
-  color: #aaa;
-}
-
-.timer {
-  font-size: 3rem;
-  text-align: center;
-  margin: 1rem 0;
+  color: #d1d5db;
+  margin-top: 4px;
 }
 
 .phase {
   text-align: center;
+  color: #f3f4f6;
+}
+
+.timer {
+  font-size: 4rem;
+  text-align: center;
+  font-weight: bold;
+  color: #f97316;
+  margin: 1rem 0;
 }
 
 .button-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -303,17 +383,17 @@ function deleteSession(id) {
   background: #f97316;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 10px 18px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
 .btn-secondary {
-  background: #3f3f3f;
+  background: #374151;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 10px 18px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -321,13 +401,23 @@ function deleteSession(id) {
   background: #dc2626;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+details {
+  margin-top: 12px;
+}
+
+summary {
+  color: #e5e7eb;
   cursor: pointer;
 }
 
 .interval-list {
-  padding-left: 1rem;
+  color: #f5f5f5;
+  padding-left: 18px;
 }
 </style>
 
