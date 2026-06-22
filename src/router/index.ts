@@ -1,15 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 //import HomeView from '../views/HomeView.vue'
-import Drill from '../components/DrillComponent.vue'
+import CreateSessions from '../components/DrillComponent.vue'
 import Todo from '../components/Todo.vue'
-import Stats from '../components/Statistic.vue'
+import Statistic from '../components/Statistic.vue'
+import Sessions from "../components/Sessions.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-      { path: '/', component: Drill },
+      { path: '/', component: CreateSessions },
       { path: '/todo', component: Todo },
-      { path: '/stats', component: Stats },
+      { path: '/stats', component: Statistic },
+       { path: '/sessions', component: Sessions },
 
   /*  {
       path: '/',

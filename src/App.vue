@@ -5,11 +5,12 @@
 <template>
   <div class="app">
     <h1>Breakdance Training</h1>
-    <div class="nav">
-      <router-link to="/">Drill</router-link>
-      <router-link to="/todo">Todo</router-link>
-      <router-link to="/stats">Stats</router-link>
-    </div>
+  <div class="nav">
+    <router-link to="/">Create Sessions</router-link>
+    <router-link to="/sessions">Sessions</router-link>
+    <router-link to="/todo">Todo</router-link>
+    <router-link to="/stats">Statistics</router-link>
+  </div>
     <div class="content">
       <router-view />
     </div>
