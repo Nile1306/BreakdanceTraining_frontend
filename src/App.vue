@@ -1,71 +1,92 @@
-<script setup>
-// nothing needed here at the app level, router handles everything
+<script setup lang="ts">
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+
+const auth = useAuthStore()
+const router = useRouter()
+
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
 </script>
 
 <template>
   <div class="app">
     <h1>Breakdance Training</h1>
-    <!-- main nav -->
-    <div class="nav">
-      <router-link to="/">Drill</router-link>
-      <router-link to="/todo">Todo</router-link>
-      <router-link to="/stats">Stats</router-link>
+    <div v-if="auth.isLoggedIn" class="nav">
+      <router-link to="/">Create Session</router-link>
       <router-link to="/sessions">Sessions</router-link>
+      <router-link to="/todo">Todo</router-link>
+      <router-link to="/stats">Statistics</router-link>
+
+      <button @click="logout">
+        Logout
+      </button>
     </div>
+
     <div class="content">
       <router-view />
     </div>
   </div>
 </template>
 
-
 <style scoped>
 .app {
-text-align: center;
+  text-align: center;
 }
 
 h1 {
-  font-size: 40px;
-  margin-bottom: 16px;
+  font-size: 42px;
+  margin-bottom: 20px;
+  color: #ffffff;
 }
 
 .nav {
-width: 100%;
-font-size: 14px;
-margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
 }
 
 .nav a {
-display: inline-block;
-padding: 0 16px;
-border-left: 1px solid var(--color-border);
-text-decoration: none;
-color: inherit;
+  text-decoration: none;
+  color: #d1d5db;
+  background: #181c24;
+  border: 1px solid #2b313d;
+  padding: 10px 18px;
+  border-radius: 8px;
+  transition: 0.2s;
 }
 
-.nav a:first-of-type {
-border-left: none;
+.nav a:hover {
+  background: #222834;
 }
 
 .nav a.router-link-exact-active {
-color: var(--color-text);
-font-weight: bold;
-}
-
-.nav a.router-link-exact-active:hover {
-background-color: transparent;
+  background: #f97316;
+  color: white;
+  border-color: #f97316;
+  font-weight: 600;
 }
 
 .content {
-margin-top: 24px;
-font-size: 24px
+  margin-top: 20px;
+}
+.nav button {
+  background: #f97316;
+  color: white;
+  border: 1px solid #f97316;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
 }
 
-
-@media (min-width: 1024px) {
-.nav {
-font-size: 16px;
-margin-top: 16px;
-}
+.nav button:hover {
+  background: #ea580c;
+  border-color: #ea580c;
 }
 </style>
