@@ -6,12 +6,15 @@ import Statistic from '../components/Statistic.vue'
 import Sessions from '../components/Sessions.vue'
 import Login from '../components/Login.vue'
 import Register from '../components/Register.vue'
+import SpotifyCallback from '../components/SpotifyCallback.vue'
 
+// sessions is lazy-loaded so it doesn't bloat the initial bundle
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: Login },
     {path: '/register',component: Register},
+    { path: '/callback', component: SpotifyCallback },
     { path: '/', component: CreateSessions, meta: { requiresAuth: true } },
     { path: '/todo', component: Todo, meta: { requiresAuth: true } },
     { path: '/stats', component: Statistic, meta: { requiresAuth: true } },
