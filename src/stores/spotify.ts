@@ -99,6 +99,49 @@ export const useSpotifyStore = defineStore('spotify', () => {
     return data.items ?? []
   }
 
+  async function playPlaylist(uri: string) {
+    const res = await fetch('https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken.value}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ context_uri: uri }),
+    })
+    if (res.status === 403) return 'premium_required'
+    if (res.status === 404) return 'no_device'
+    return 'ok'
+  }
+
+  async function getCurrentPlayback() {
+    const res = await fetch('https://api.spotify.com/v1/me/player', {
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+    if (res.status === 204 || !res.ok) return null
+    return await res.json()
+  }
+
+  async function pausePlayback() {
+    await fetch('https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+  }
+
+  async function resumePlayback() {
+    await fetch('https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+  }
+
+  async function skipNext() {
+    await fetch('https://api.spotify.com/v1/me/player/next', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+  }
+
   function disconnect() {
     accessToken.value = ''
     expiresAt.value = 0
@@ -113,6 +156,11 @@ export const useSpotifyStore = defineStore('spotify', () => {
     handleCallback,
     searchPlaylists,
     getMyPlaylists,
+    playPlaylist,
+    getCurrentPlayback,
+    pausePlayback,
+    resumePlayback,
+    skipNext,
     disconnect,
   }
 })

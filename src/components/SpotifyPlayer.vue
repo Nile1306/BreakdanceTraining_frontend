@@ -14,6 +14,22 @@
 
       <!-- verbunden -->
       <div v-else>
+
+        <!-- aktuell spielender song -->
+        <div v-if="currentTrack" class="now-playing">
+          <img v-if="currentTrack.albumArt" :src="currentTrack.albumArt" class="now-art" />
+          <div class="now-info">
+            <span class="now-title">{{ currentTrack.name }}</span>
+            <span class="now-artist">{{ currentTrack.artist }}</span>
+          </div>
+          <div class="now-controls">
+            <button @click="togglePlay" class="btn-ctrl">{{ isPlaying ? '⏸' : '▶' }}</button>
+            <button @click="next" class="btn-ctrl">⏭</button>
+          </div>
+        </div>
+
+        <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
+
         <div class="search-row">
           <input
             v-model="searchQuery"
@@ -27,7 +43,6 @@
 
         <div v-if="loading" style="color: #aaa; font-size: 13px; margin-top: 8px;">Laden...</div>
 
-        <!-- Suchergebnisse oder eigene Playlists -->
         <div v-else>
           <p class="list-label">{{ searchQuery ? 'Suchergebnisse' : 'Meine Playlists' }}</p>
           <div v-if="playlists.length === 0" style="color: #666; font-size: 13px;">Keine Playlists gefunden</div>
@@ -46,9 +61,7 @@
               <span class="pl-name">{{ pl.name }}</span>
               <span class="pl-tracks">{{ pl.tracks?.total ?? '?' }} Tracks</span>
             </div>
-            <a :href="pl.external_urls?.spotify" target="_blank" class="btn-open">
-              Öffnen
-            </a>
+            <button @click="play(pl)" class="btn-play">▶</button>
           </div>
         </div>
 
@@ -59,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useSpotifyStore } from '@/stores/spotify'
 
 const spotify = useSpotifyStore()
@@ -68,11 +81,14 @@ const open = ref(false)
 const searchQuery = ref('')
 const playlists = ref<any[]>([])
 const loading = ref(false)
+const errorMsg = ref('')
+const isPlaying = ref(false)
+const currentTrack = ref<any>(null)
 
-// eigene playlists laden sobald man aufmacht
 watch(open, async (val) => {
   if (val && spotify.isConnected && !searchQuery.value) {
     await loadMyPlaylists()
+    await refreshPlayback()
   }
 })
 
@@ -82,7 +98,50 @@ async function loadMyPlaylists() {
   loading.value = false
 }
 
-// TODO: debounce hier würde sinn machen aber erstmal so
+async function refreshPlayback() {
+  const data = await spotify.getCurrentPlayback()
+  if (!data || !data.item) {
+    currentTrack.value = null
+    return
+  }
+  isPlaying.value = data.is_playing
+  currentTrack.value = {
+    name: data.item.name,
+    artist: data.item.artists?.map((a: any) => a.name).join(', '),
+    albumArt: data.item.album?.images?.[1]?.url,
+  }
+}
+
+async function play(pl: any) {
+  errorMsg.value = ''
+  const result = await spotify.playPlaylist(pl.uri)
+  if (result === 'premium_required') {
+    errorMsg.value = 'Spotify Premium wird benötigt'
+    return
+  }
+  if (result === 'no_device') {
+    errorMsg.value = 'Kein aktives Spotify-Gerät gefunden — öffne Spotify auf deinem Handy oder PC'
+    return
+  }
+  // kurz warten dann playback state holen
+  setTimeout(refreshPlayback, 800)
+}
+
+async function togglePlay() {
+  if (isPlaying.value) {
+    await spotify.pausePlayback()
+  } else {
+    await spotify.resumePlayback()
+  }
+  isPlaying.value = !isPlaying.value
+}
+
+async function next() {
+  await spotify.skipNext()
+  setTimeout(refreshPlayback, 600)
+}
+
+// TODO: debounce
 async function onSearch() {
   if (!searchQuery.value.trim()) {
     await loadMyPlaylists()
@@ -152,6 +211,82 @@ function clearSearch() {
 
 .btn-spotify-connect:hover {
   background: #17a349;
+}
+
+/* now playing */
+.now-playing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a1f2a;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.now-art {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.now-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.now-title {
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-artist {
+  color: #888;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-ctrl {
+  background: #2b313d;
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ctrl:hover {
+  background: #1db954;
+}
+
+.error-msg {
+  background: #3d1515;
+  color: #f87171;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
 }
 
 .search-row {
@@ -246,19 +381,23 @@ function clearSearch() {
   font-size: 11px;
 }
 
-.btn-open {
+.btn-play {
   background: #1db954;
+  border: none;
   color: black;
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 12px;
-  white-space: nowrap;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 13px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
 
-.btn-open:hover {
+.btn-play:hover {
   background: #17a349;
 }
 
