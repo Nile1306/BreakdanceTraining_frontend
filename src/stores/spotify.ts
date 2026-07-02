@@ -2,8 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID
-const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI
+const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5173/callback'
 const SCOPES = 'playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state streaming user-read-email user-read-private'
+
+// module-level, pinia macht komplexe objekte kaputt wenn man sie reactive macht
+let _player: any = null
 
 function generateVerifier(length = 128) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -18,9 +21,27 @@ async function generateChallenge(verifier: string) {
     .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
+function loadSDKScript(): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as any).Spotify) { resolve(); return }
+    const script = document.createElement('script')
+    script.src = 'https://sdk.scdn.co/spotify-player.js'
+    script.async = true
+    document.body.appendChild(script)
+    ;(window as any).onSpotifyWebPlaybackSDKReady = () => resolve()
+  })
+}
+
 export const useSpotifyStore = defineStore('spotify', () => {
   const accessToken = ref(localStorage.getItem('spotify_token') || '')
   const expiresAt = ref(Number(localStorage.getItem('spotify_expires_at')) || 0)
+
+  // player state
+  const deviceId = ref('')
+  const playerReady = ref(false)
+  const playerStatus = ref('')
+  const isPlaying = ref(false)
+  const currentTrack = ref<{ name: string; artist: string; albumArt: string } | null>(null)
 
   const isConnected = computed(() => !!accessToken.value && Date.now() < expiresAt.value)
 
@@ -67,26 +88,81 @@ export const useSpotifyStore = defineStore('spotify', () => {
 
     accessToken.value = data.access_token
     expiresAt.value = Date.now() + data.expires_in * 1000
-
     localStorage.setItem('spotify_token', data.access_token)
     localStorage.setItem('spotify_expires_at', expiresAt.value.toString())
     localStorage.removeItem('spotify_verifier')
     return true
   }
 
+  async function initPlayer() {
+    if (_player) return
+    playerStatus.value = 'Player wird geladen...'
+    await loadSDKScript()
+
+    _player = new (window as any).Spotify.Player({
+      name: 'Breakdance Training',
+      getOAuthToken: (cb: (t: string) => void) => cb(accessToken.value),
+      volume: 0.8,
+    })
+
+    _player.addListener('ready', ({ device_id }: any) => {
+      console.log('spotify player ready:', device_id)
+      deviceId.value = device_id
+      playerReady.value = true
+      playerStatus.value = ''
+    })
+
+    _player.addListener('not_ready', () => {
+      deviceId.value = ''
+      playerReady.value = false
+      playerStatus.value = 'Player nicht bereit'
+    })
+
+    _player.addListener('player_state_changed', (state: any) => {
+      if (!state) return
+      isPlaying.value = !state.paused
+      const track = state.track_window?.current_track
+      if (track) {
+        currentTrack.value = {
+          name: track.name,
+          artist: track.artists?.map((a: any) => a.name).join(', ') ?? '',
+          albumArt: track.album?.images?.[1]?.url ?? '',
+        }
+      }
+    })
+
+    _player.addListener('account_error', () => {
+      playerStatus.value = 'Spotify Premium benötigt'
+    })
+
+    _player.addListener('authentication_error', ({ message }: any) => {
+      console.error('auth error', message)
+      playerStatus.value = 'Auth Fehler'
+    })
+
+    _player.connect()
+  }
+
+  function disconnectPlayer() {
+    if (_player) {
+      _player.disconnect()
+      _player = null
+    }
+    deviceId.value = ''
+    playerReady.value = false
+    currentTrack.value = null
+    isPlaying.value = false
+  }
+
   // TODO: refresh token implementieren irgendwann
   async function searchPlaylists(query: string) {
     if (!query.trim()) return []
-
     const res = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=playlist&limit=12`,
       { headers: { Authorization: `Bearer ${accessToken.value}` } }
     )
     const data = await res.json()
-    if (data.error) {
-      console.error('spotify search error', data.error)
-      return []
-    }
+    if (data.error) { console.error('spotify search error', data.error); return [] }
     return data.playlists?.items?.filter(Boolean) ?? []
   }
 
@@ -100,12 +176,13 @@ export const useSpotifyStore = defineStore('spotify', () => {
   }
 
   async function playPlaylist(uri: string) {
-    const res = await fetch('https://api.spotify.com/v1/me/player/play', {
+    const url = deviceId.value
+      ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId.value}`
+      : 'https://api.spotify.com/v1/me/player/play'
+
+    const res = await fetch(url, {
       method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken.value}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${accessToken.value}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ context_uri: uri }),
     })
     if (res.status === 403) return 'premium_required'
@@ -113,19 +190,12 @@ export const useSpotifyStore = defineStore('spotify', () => {
     return 'ok'
   }
 
-  async function getCurrentPlayback() {
-    const res = await fetch('https://api.spotify.com/v1/me/player', {
-      headers: { Authorization: `Bearer ${accessToken.value}` },
-    })
-    if (res.status === 204 || !res.ok) return null
-    return await res.json()
-  }
-
   async function pausePlayback() {
     await fetch('https://api.spotify.com/v1/me/player/pause', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${accessToken.value}` },
     })
+    isPlaying.value = false
   }
 
   async function resumePlayback() {
@@ -133,6 +203,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
       method: 'PUT',
       headers: { Authorization: `Bearer ${accessToken.value}` },
     })
+    isPlaying.value = true
   }
 
   async function skipNext() {
@@ -142,7 +213,15 @@ export const useSpotifyStore = defineStore('spotify', () => {
     })
   }
 
+  async function skipPrevious() {
+    await fetch('https://api.spotify.com/v1/me/player/previous', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+  }
+
   function disconnect() {
+    disconnectPlayer()
     accessToken.value = ''
     expiresAt.value = 0
     localStorage.removeItem('spotify_token')
@@ -152,15 +231,21 @@ export const useSpotifyStore = defineStore('spotify', () => {
   return {
     accessToken,
     isConnected,
+    deviceId,
+    playerReady,
+    playerStatus,
+    isPlaying,
+    currentTrack,
     login,
     handleCallback,
+    initPlayer,
     searchPlaylists,
     getMyPlaylists,
     playPlaylist,
-    getCurrentPlayback,
     pausePlayback,
     resumePlayback,
     skipNext,
+    skipPrevious,
     disconnect,
   }
 })

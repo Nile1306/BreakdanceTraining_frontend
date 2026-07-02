@@ -2,6 +2,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import SpotifyPlayer from '@/components/SpotifyPlayer.vue'
+import SpotifyNowPlaying from '@/components/SpotifyNowPlaying.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -14,37 +15,50 @@ function logout() {
 
 <template>
   <div class="app">
-    <h1>Breakdance Training</h1>
-    <div v-if="auth.isLoggedIn" class="nav">
-      <router-link to="/">Create Session</router-link>
-      <router-link to="/sessions">Sessions</router-link>
-      <router-link to="/todo">Todo</router-link>
-      <router-link to="/stats">Statistics</router-link>
+    <!-- top bar: aktueller song -->
+    <SpotifyNowPlaying v-if="auth.isLoggedIn" />
 
-      <button @click="logout">
-        Logout
-      </button>
-    </div>
+    <div class="app-inner">
+      <h1>Breakdance Training</h1>
 
-    <div class="content">
-      <router-view />
-    </div>
+      <div v-if="auth.isLoggedIn" class="nav">
+        <router-link to="/">Create Session</router-link>
+        <router-link to="/sessions">Sessions</router-link>
+        <router-link to="/todo">Todo</router-link>
+        <router-link to="/stats">Statistics</router-link>
+        <button @click="logout">Logout</button>
+      </div>
 
-    <div v-if="auth.isLoggedIn" class="spotify-container">
-      <SpotifyPlayer />
+      <div class="main-layout">
+        <div class="content">
+          <router-view />
+        </div>
+
+        <div v-if="auth.isLoggedIn" class="spotify-sidebar">
+          <SpotifyPlayer />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .app {
-  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-inner {
+  padding: 20px;
+  flex: 1;
 }
 
 h1 {
   font-size: 42px;
   margin-bottom: 20px;
   color: #ffffff;
+  text-align: center;
 }
 
 .nav {
@@ -76,9 +90,6 @@ h1 {
   font-weight: 600;
 }
 
-.content {
-  margin-top: 20px;
-}
 .nav button {
   background: #f97316;
   color: white;
@@ -95,9 +106,21 @@ h1 {
   border-color: #ea580c;
 }
 
-.spotify-container {
-  max-width: 400px;
-  margin: 40px auto 20px auto;
-  padding: 0 1rem;
+.main-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.spotify-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px;
 }
 </style>

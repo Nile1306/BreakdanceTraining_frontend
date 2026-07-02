@@ -1,31 +1,20 @@
 <template>
-  <div class="spotify-wrapper">
-    <div class="spotify-header" @click="open = !open">
-      <span class="spotify-logo">🎵 Spotify</span>
-      <span class="toggle-btn">{{ open ? '▲' : '▼' }}</span>
+  <div class="playlist-panel">
+    <div class="panel-header">
+      <span class="panel-title">🎵 Spotify</span>
     </div>
 
-    <div v-if="open" class="spotify-body">
-      <!-- nicht verbunden -->
+    <div class="panel-body">
       <div v-if="!spotify.isConnected" class="connect-area">
-        <p style="color: #aaa; font-size: 13px; margin-bottom: 10px;">Verbinde dein Spotify um Playlists zu laden</p>
-        <button class="btn-spotify-connect" @click="spotify.login()">Mit Spotify verbinden</button>
+        <p style="color: #aaa; font-size: 13px; margin-bottom: 10px;">
+          Verbinde dein Spotify um Playlists zu laden
+        </p>
+        <button class="btn-connect" @click="spotify.login()">Mit Spotify verbinden</button>
       </div>
 
-      <!-- verbunden -->
       <div v-else>
-
-        <!-- aktuell spielender song -->
-        <div v-if="currentTrack" class="now-playing">
-          <img v-if="currentTrack.albumArt" :src="currentTrack.albumArt" class="now-art" />
-          <div class="now-info">
-            <span class="now-title">{{ currentTrack.name }}</span>
-            <span class="now-artist">{{ currentTrack.artist }}</span>
-          </div>
-          <div class="now-controls">
-            <button @click="togglePlay" class="btn-ctrl">{{ isPlaying ? '⏸' : '▶' }}</button>
-            <button @click="next" class="btn-ctrl">⏭</button>
-          </div>
+        <div v-if="!spotify.playerReady && spotify.playerStatus" class="status-msg">
+          {{ spotify.playerStatus }}
         </div>
 
         <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
@@ -41,27 +30,26 @@
           <button v-if="searchQuery" @click="clearSearch" class="btn-clear">✕</button>
         </div>
 
-        <div v-if="loading" style="color: #aaa; font-size: 13px; margin-top: 8px;">Laden...</div>
+        <div v-if="loading" class="loading-text">Laden...</div>
 
-        <div v-else>
+        <div v-else class="playlist-list">
           <p class="list-label">{{ searchQuery ? 'Suchergebnisse' : 'Meine Playlists' }}</p>
-          <div v-if="playlists.length === 0" style="color: #666; font-size: 13px;">Keine Playlists gefunden</div>
-          <div
-            v-for="pl in playlists"
-            :key="pl.id"
-            class="playlist-row"
-          >
-            <img
-              v-if="pl.images && pl.images[0]"
-              :src="pl.images[0].url"
-              class="pl-cover"
-            />
+          <div v-if="playlists.length === 0" style="color: #666; font-size: 13px;">
+            Keine Playlists gefunden
+          </div>
+          <div v-for="pl in playlists" :key="pl.id" class="playlist-row">
+            <img v-if="pl.images?.[0]" :src="pl.images[0].url" class="pl-cover" />
             <div v-else class="pl-cover-placeholder">♪</div>
             <div class="pl-info">
               <span class="pl-name">{{ pl.name }}</span>
               <span class="pl-tracks">{{ pl.tracks?.total ?? '?' }} Tracks</span>
             </div>
-            <button @click="play(pl)" class="btn-play">▶</button>
+            <button
+              @click="play(pl)"
+              class="btn-play"
+              :disabled="!spotify.playerReady"
+              :title="!spotify.playerReady ? 'Player wird geladen...' : 'Abspielen'"
+            >▶</button>
           </div>
         </div>
 
@@ -72,23 +60,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSpotifyStore } from '@/stores/spotify'
 
 const spotify = useSpotifyStore()
 
-const open = ref(false)
 const searchQuery = ref('')
 const playlists = ref<any[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
-const isPlaying = ref(false)
-const currentTrack = ref<any>(null)
 
-watch(open, async (val) => {
-  if (val && spotify.isConnected && !searchQuery.value) {
+onMounted(async () => {
+  if (spotify.isConnected) {
+    spotify.initPlayer()
     await loadMyPlaylists()
-    await refreshPlayback()
   }
 })
 
@@ -98,47 +83,14 @@ async function loadMyPlaylists() {
   loading.value = false
 }
 
-async function refreshPlayback() {
-  const data = await spotify.getCurrentPlayback()
-  if (!data || !data.item) {
-    currentTrack.value = null
-    return
-  }
-  isPlaying.value = data.is_playing
-  currentTrack.value = {
-    name: data.item.name,
-    artist: data.item.artists?.map((a: any) => a.name).join(', '),
-    albumArt: data.item.album?.images?.[1]?.url,
-  }
-}
-
 async function play(pl: any) {
   errorMsg.value = ''
   const result = await spotify.playPlaylist(pl.uri)
   if (result === 'premium_required') {
     errorMsg.value = 'Spotify Premium wird benötigt'
-    return
+  } else if (result === 'no_device') {
+    errorMsg.value = 'Kein aktives Gerät — öffne Spotify auf einem Gerät'
   }
-  if (result === 'no_device') {
-    errorMsg.value = 'Kein aktives Spotify-Gerät gefunden — öffne Spotify auf deinem Handy oder PC'
-    return
-  }
-  // kurz warten dann playback state holen
-  setTimeout(refreshPlayback, 800)
-}
-
-async function togglePlay() {
-  if (isPlaying.value) {
-    await spotify.pausePlayback()
-  } else {
-    await spotify.resumePlayback()
-  }
-  isPlaying.value = !isPlaying.value
-}
-
-async function next() {
-  await spotify.skipNext()
-  setTimeout(refreshPlayback, 600)
 }
 
 // TODO: debounce
@@ -159,46 +111,36 @@ function clearSearch() {
 </script>
 
 <style scoped>
-.spotify-wrapper {
+.playlist-panel {
   background: #111418;
   border: 1px solid #2b313d;
   border-radius: 10px;
   overflow: hidden;
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
 }
 
-.spotify-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px;
-  cursor: pointer;
-  user-select: none;
+.panel-header {
   background: #181c24;
+  padding: 12px 14px;
+  border-bottom: 1px solid #1e232d;
 }
 
-.spotify-logo {
+.panel-title {
   color: #1db954;
   font-weight: 700;
   font-size: 14px;
 }
 
-.toggle-btn {
-  color: #aaa;
-  font-size: 12px;
-}
-
-.spotify-body {
+.panel-body {
   padding: 12px 14px;
 }
 
 .connect-area {
   text-align: center;
+  padding: 10px 0;
 }
 
-.btn-spotify-connect {
+.btn-connect {
   background: #1db954;
   color: black;
   border: none;
@@ -209,75 +151,15 @@ function clearSearch() {
   cursor: pointer;
 }
 
-.btn-spotify-connect:hover {
+.btn-connect:hover {
   background: #17a349;
 }
 
-/* now playing */
-.now-playing {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #1a1f2a;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 12px;
-}
-
-.now-art {
-  width: 44px;
-  height: 44px;
-  border-radius: 4px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.now-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.now-title {
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.now-artist {
+.status-msg {
   color: #888;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.now-controls {
-  display: flex;
-  gap: 6px;
-}
-
-.btn-ctrl {
-  background: #2b313d;
-  border: none;
-  color: white;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-ctrl:hover {
-  background: #1db954;
+  font-size: 12px;
+  margin-bottom: 10px;
+  text-align: center;
 }
 
 .error-msg {
@@ -293,6 +175,7 @@ function clearSearch() {
   display: flex;
   gap: 6px;
   align-items: center;
+  margin-bottom: 4px;
 }
 
 .search-input {
@@ -319,12 +202,23 @@ function clearSearch() {
   padding: 4px;
 }
 
+.loading-text {
+  color: #aaa;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
 .list-label {
   color: #888;
   font-size: 11px;
   text-transform: uppercase;
   margin: 10px 0 6px 0;
   letter-spacing: 0.5px;
+}
+
+.playlist-list {
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 .playlist-row {
@@ -391,18 +285,21 @@ function clearSearch() {
   cursor: pointer;
   font-size: 13px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-weight: 700;
 }
 
-.btn-play:hover {
+.btn-play:disabled {
+  background: #2b313d;
+  color: #555;
+  cursor: not-allowed;
+}
+
+.btn-play:not(:disabled):hover {
   background: #17a349;
 }
 
 .btn-disconnect {
-  margin-top: 12px;
+  margin-top: 14px;
   background: transparent;
   border: 1px solid #333;
   color: #666;
