@@ -175,16 +175,47 @@ export const useSpotifyStore = defineStore('spotify', () => {
     return data.items ?? []
   }
 
+  async function getDeviceId() {
+    if (deviceId.value) return deviceId.value
+
+    // fallback: direkt von api holen falls ready event noch nicht gefeuert hat
+    const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
+      headers: { Authorization: `Bearer ${accessToken.value}` },
+    })
+    const data = await res.json()
+    console.log('verfügbare geräte:', data.devices)
+    const mine = data.devices?.find((d: any) => d.name === 'Breakdance Training')
+    if (mine) {
+      deviceId.value = mine.id
+      return mine.id
+    }
+    return ''
+  }
+
   async function playPlaylist(uri: string) {
-    const url = deviceId.value
-      ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId.value}`
+    const id = await getDeviceId()
+    console.log('play auf device:', id, 'uri:', uri)
+
+    // zuerst playback auf browser device übertragen
+    if (id) {
+      await fetch('https://api.spotify.com/v1/me/player', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${accessToken.value}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_ids: [id], play: false }),
+      })
+    }
+
+    const url = id
+      ? `https://api.spotify.com/v1/me/player/play?device_id=${id}`
       : 'https://api.spotify.com/v1/me/player/play'
 
+    const body = uri ? JSON.stringify({ context_uri: uri }) : undefined
     const res = await fetch(url, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${accessToken.value}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context_uri: uri }),
+      body,
     })
+    console.log('play response status:', res.status)
     if (res.status === 403) return 'premium_required'
     if (res.status === 404) return 'no_device'
     return 'ok'
