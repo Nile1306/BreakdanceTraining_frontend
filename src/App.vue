@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import SpotifyPlayer from '@/components/SpotifyPlayer.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -27,6 +28,10 @@ function logout() {
 
     <div class="content">
       <router-view />
+    </div>
+
+    <div v-if="auth.isLoggedIn" class="spotify-container">
+      <SpotifyPlayer />
     </div>
   </div>
 </template>
@@ -88,5 +93,11 @@ h1 {
 .nav button:hover {
   background: #ea580c;
   border-color: #ea580c;
+}
+
+.spotify-container {
+  max-width: 400px;
+  margin: 40px auto 20px auto;
+  padding: 0 1rem;
 }
 </style>
