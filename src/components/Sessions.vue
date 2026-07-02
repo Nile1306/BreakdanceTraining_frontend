@@ -2,19 +2,20 @@
   <div class="sessions-page">
     <h2>Sessions</h2>
 
-    <div
-      v-if="activeSession"
-      class="timer-card"
-    >
-      <h3>
-        {{ activeSession.name }}
-      </h3>
+    <p v-if="successMessage" class="success-message">
+      {{ successMessage }}
+    </p>
+
+    <p v-if="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </p>
+
+    <div v-if="activeSession" class="timer-card">
+      <h3>{{ activeSession.name }}</h3>
 
       <div class="phase">
         Current Phase:
-        <strong>
-          {{ currentInterval?.type }}
-        </strong>
+        <strong>{{ currentInterval?.type }}</strong>
       </div>
 
       <div class="timer">
@@ -22,334 +23,240 @@
       </div>
 
       <div class="button-group">
-
-        <button
-          v-if="isRunning"
-          class="btn-secondary"
-          @click="pauseSession"
-        >
+        <button v-if="isRunning" class="btn-secondary" @click="pauseSession">
           Pause
         </button>
 
-        <button
-          v-else
-          class="btn-primary"
-          @click="continueSession"
-        >
+        <button v-else class="btn-primary" @click="continueSession">
           Continue
         </button>
 
-        <button
-          class="btn-secondary"
-          @click="restartSession"
-        >
+        <button class="btn-secondary" @click="restartSession">
           Restart
         </button>
 
-        <button
-          class="btn-danger"
-          @click="endSession"
-        >
+        <button class="btn-danger" @click="endSession">
           End Session
         </button>
-
       </div>
     </div>
 
-    <div
-      v-for="session in sessions"
-      :key="session.id"
-      class="session-card"
-    >
+    <div v-for="session in sessions" :key="session.id" class="session-card">
       <div class="session-header">
-
         <div>
           <div class="session-title">
             {{ session.name }}
           </div>
 
           <div class="session-info">
-            {{ session.intervals.length }}
-            intervals
+            {{ session.intervals.length }} intervals
           </div>
         </div>
 
         <div class="button-group">
-
-          <button
-            class="btn-primary"
-            @click="startSession(session)"
-          >
+          <button class="btn-primary" @click="startSession(session)">
             Start
           </button>
 
-          <button
-            class="btn-danger"
-            @click="deleteSession(session.id)"
-          >
+          <button class="btn-danger" @click="deleteSession(session.id)">
             Delete
           </button>
-
         </div>
       </div>
 
       <details>
-        <summary>
-          Show Intervals
-        </summary>
-
+        <summary>Show Intervals</summary>
         <ul class="interval-list">
-
-          <li
-            v-for="(interval, index) in session.intervals"
-            :key="index"
-          >
-            {{ interval.type }}
-            -
-            {{ interval.durationMinutes }}
-            sec
+          <li v-for="(interval, index) in session.intervals" :key="index">
+            {{ interval.type }} - {{ interval.durationMinutes }} sec
           </li>
-
         </ul>
       </details>
     </div>
   </div>
 </template>
 
-<script setup>
-import {
-  ref,
-  computed,
-  onMounted
-} from 'vue'
 
-const baseUrl =
-  import.meta.env.VITE_BACKEND_BASE_URL
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL
 
 const sessions = ref([])
-
 const activeSession = ref(null)
-
 const currentIntervalIndex = ref(0)
-
 const remainingSeconds = ref(0)
-
 const isRunning = ref(false)
+const successMessage = ref('')
+const errorMessage = ref('')
 
 let timer = null
 
 onMounted(loadSessions)
 
 const currentInterval = computed(() => {
-
   if (!activeSession.value) {
     return null
   }
 
-  return activeSession.value.intervals[
-    currentIntervalIndex.value
-  ]
+  return activeSession.value.intervals[currentIntervalIndex.value]
 })
 
+function getActivityHistoryKey() {
+  return `activityHistory_${auth.email}`
+}
+
+function showSuccess(message) {
+  successMessage.value = message
+  errorMessage.value = ''
+
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 3000)
+}
+
+function showError(message) {
+  errorMessage.value = message
+  successMessage.value = ''
+
+  setTimeout(() => {
+    errorMessage.value = ''
+  }, 3000)
+}
+
 async function loadSessions() {
-
   try {
+    const response = await fetch(`${baseUrl}/sessions`)
 
-    const response = await fetch(
-      `${baseUrl}/sessions`
+    if (!response.ok) {
+      throw new Error('Failed to load sessions')
+    }
+
+    const data = await response.json()
+
+    sessions.value = data.filter(
+      (session) => session.ownerEmail === auth.email,
     )
-
-    sessions.value =
-      await response.json()
-
   } catch (error) {
-
     console.error(error)
-
+    showError('Could not load sessions.')
   }
 }
 
 function startSession(session) {
-
-  if (
-    !session.intervals ||
-    session.intervals.length === 0
-  ) {
-    alert(
-      'This session has no intervals.'
-    )
+  if (!session.intervals || session.intervals.length === 0) {
+    showError('This session has no intervals.')
     return
   }
 
   clearInterval(timer)
 
   activeSession.value = session
-
   currentIntervalIndex.value = 0
-
-  remainingSeconds.value =
-    session.intervals[0]
-      .durationMinutes
-
+  remainingSeconds.value = session.intervals[0].durationMinutes
   isRunning.value = true
 
   runTimer()
 }
 
 function runTimer() {
-
   clearInterval(timer)
 
   timer = setInterval(() => {
-
     if (!isRunning.value) {
       return
     }
 
     remainingSeconds.value--
 
-    if (
-      remainingSeconds.value <= 0
-    ) {
-
+    if (remainingSeconds.value <= 0) {
       currentIntervalIndex.value++
 
       const nextInterval =
-        activeSession.value.intervals[
-          currentIntervalIndex.value
-        ]
+        activeSession.value.intervals[currentIntervalIndex.value]
 
       if (!nextInterval) {
-
         finishSession()
-
         return
       }
 
-      remainingSeconds.value =
-        nextInterval.durationMinutes
+      remainingSeconds.value = nextInterval.durationMinutes
     }
-
   }, 1000)
 }
 
 function pauseSession() {
-
   isRunning.value = false
 }
 
 function continueSession() {
-
   isRunning.value = true
 }
 
 function restartSession() {
-
-  if (
-    !confirm(
-      'Are you sure you want to restart this session?'
-    )
-  ) {
+  if (!activeSession.value) {
     return
   }
 
-  startSession(
-    activeSession.value
-  )
+  startSession(activeSession.value)
 }
 
 function endSession() {
-
-  if (
-    !confirm(
-      'Are you sure you want to end this session?'
-    )
-  ) {
-    return
-  }
-
   clearInterval(timer)
 
   activeSession.value = null
-
   currentIntervalIndex.value = 0
-
   remainingSeconds.value = 0
-
   isRunning.value = false
+
+  showSuccess('Session ended.')
 }
 
 function finishSession() {
-
   clearInterval(timer)
 
-  const history =
-    JSON.parse(
-      localStorage.getItem(
-        'activityHistory'
-      ) || '[]'
-    )
+  const history = JSON.parse(
+    localStorage.getItem(getActivityHistoryKey()) || '[]',
+  )
 
   history.push({
-
-    date:
-      new Date()
-        .toLocaleDateString('de-DE'),
-
+    date: new Date().toLocaleDateString('de-DE'),
     type: 'SESSION',
-
-    name:
-      activeSession.value.name,
-
-    intervals:
-      activeSession.value
-        .intervals.length
-
+    name: activeSession.value.name,
+    intervals: activeSession.value.intervals.length,
   })
 
   localStorage.setItem(
-    'activityHistory',
-    JSON.stringify(history)
-  )
-
-  alert(
-    'Session completed successfully!'
+    getActivityHistoryKey(),
+    JSON.stringify(history),
   )
 
   activeSession.value = null
-
   currentIntervalIndex.value = 0
-
   remainingSeconds.value = 0
-
   isRunning.value = false
+
+  showSuccess('Session completed successfully!')
 }
 
 async function deleteSession(id) {
-
-  if (
-    !confirm(
-      'Delete this session?'
-    )
-  ) {
-    return
-  }
-
   try {
+    const response = await fetch(`${baseUrl}/sessions/${id}`, {
+      method: 'DELETE',
+    })
 
-    await fetch(
-      `${baseUrl}/sessions/${id}`,
-      {
-        method: 'DELETE'
-      }
-    )
+    if (!response.ok) {
+      throw new Error('Failed to delete session')
+    }
 
-    loadSessions()
-
+    await loadSessions()
+    showSuccess('Session deleted successfully!')
   } catch (error) {
-
     console.error(error)
-
+    showError('Could not delete session.')
   }
 }
 </script>
@@ -361,6 +268,26 @@ async function deleteSession(id) {
   padding: 1rem;
 }
 
+.success-message {
+  background: #16a34a;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.error-message {
+  background: #dc2626;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
 .timer-card,
 .session-card {
   background: #181c24;
@@ -368,8 +295,7 @@ async function deleteSession(id) {
   border-radius: 12px;
   padding: 1rem;
   margin-bottom: 1rem;
-  box-shadow:
-    0 4px 20px rgba(0,0,0,.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .session-header {
@@ -449,4 +375,3 @@ summary {
   padding-left: 18px;
 }
 </style>
-

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-
+import { useAuthStore } from '@/stores/auth'
 const days = [
   'Monday',
   'Tuesday',
@@ -16,6 +16,11 @@ const tasks = ref([])
 const newTask = ref('')
 
 const selectedDay = ref('Monday')
+const auth = useAuthStore()
+
+function getActivityHistoryKey() {
+  return `activityHistory_${auth.email}`
+}
 
 function addTask() {
 
@@ -42,7 +47,7 @@ function toggleTask(task) {
   }
 
   const history = JSON.parse(
-    localStorage.getItem('activityHistory') || '[]'
+ localStorage.getItem(getActivityHistoryKey()) || '[]'
   )
 
   history.push({
@@ -51,10 +56,10 @@ function toggleTask(task) {
     name: task.name
   })
 
-  localStorage.setItem(
-    'activityHistory',
-    JSON.stringify(history)
-  )
+ localStorage.setItem(
+   getActivityHistoryKey(),
+   JSON.stringify(history)
+ )
 }
 
 function deleteTask(id) {

@@ -1,13 +1,13 @@
 <script setup>
-import {
-  ref,
-  computed,
-  onMounted,
-  onActivated
-} from 'vue'
+import {ref,computed,onMounted,onActivated } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 const activities = ref([])
+const auth = useAuthStore()
 
+function getActivityHistoryKey() {
+  return `activityHistory_${auth.email}`
+}
 const totalActivities = computed(() =>
   activities.value.length
 )
@@ -41,9 +41,9 @@ function loadData() {
 
   activities.value =
     JSON.parse(
-      localStorage.getItem(
-        'activityHistory'
-      ) || '[]'
+     localStorage.getItem(
+       getActivityHistoryKey()
+     ) || '[]'
     )
 }
 

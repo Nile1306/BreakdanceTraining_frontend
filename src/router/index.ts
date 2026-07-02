@@ -5,15 +5,18 @@ import Todo from '../components/Todo.vue'
 import Statistic from '../components/Statistic.vue'
 import Sessions from '../components/Sessions.vue'
 import Login from '../components/Login.vue'
+import Register from '../components/Register.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', component: Login },
+    {path: '/register',component: Register},
     { path: '/', component: CreateSessions, meta: { requiresAuth: true } },
     { path: '/todo', component: Todo, meta: { requiresAuth: true } },
     { path: '/stats', component: Statistic, meta: { requiresAuth: true } },
     { path: '/sessions', component: Sessions, meta: { requiresAuth: true } },
+
   ],
 })
 router.beforeEach((to) => {
@@ -23,7 +26,10 @@ router.beforeEach((to) => {
     return '/login'
   }
 
-  if (to.path === '/login' && authStore.isLoggedIn) {
+  if (
+    (to.path === '/login' || to.path === '/register') &&
+    authStore.isLoggedIn
+  ) {
     return '/'
   }
 })

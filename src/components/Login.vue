@@ -51,17 +51,14 @@ async function submitLogin() {
   }
 }
 </script>
-
 <template>
   <main class="login-page">
     <section class="login-card">
       <h2>Welcome back</h2>
       <p class="subtitle">Log in to continue your breakdance training.</p>
-
       <form @submit.prevent="submitLogin">
         <label for="email">Email</label>
         <input id="email" v-model="email" type="email" placeholder="test@test.de" />
-
         <label for="password">Password</label>
         <input id="password" v-model="password" type="password" placeholder="123456" />
 
@@ -70,10 +67,15 @@ async function submitLogin() {
         <button type="submit" :disabled="loading">
           {{ loading ? 'Logging in...' : 'Login' }}
         </button>
+        <p class="link">
+          Don't have an account?
+          <router-link to="/register">Register</router-link>
+        </p>
       </form>
     </section>
   </main>
 </template>
+
 
 <style scoped>
 .login-page {
