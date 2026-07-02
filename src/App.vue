@@ -1,11 +1,32 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import { onMounted, onUnmounted, watch } from 'vue'
 import SpotifyPlayer from '@/components/SpotifyPlayer.vue'
 import SpotifyNowPlaying from '@/components/SpotifyNowPlaying.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+// backend alle 10 min anpingen damit render nicht einschläft
+let pingInterval: ReturnType<typeof setInterval> | null = null
+
+function startPing() {
+  pingInterval = setInterval(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/sessions`).catch(() => {})
+  }, 10 * 60 * 1000)
+}
+
+function stopPing() {
+  if (pingInterval) clearInterval(pingInterval)
+}
+
+watch(() => auth.isLoggedIn, (loggedIn) => {
+  if (loggedIn) startPing()
+  else stopPing()
+}, { immediate: true })
+
+onUnmounted(stopPing)
 
 function logout() {
   auth.logout()

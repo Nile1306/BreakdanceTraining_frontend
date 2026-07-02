@@ -10,6 +10,7 @@ const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const loading = ref(false)
+const slowHint = ref(false)
 
 function validateForm() {
   if (!email.value.trim()) {
@@ -40,6 +41,12 @@ async function submitLogin() {
   if (!validateForm()) return
 
   loading.value = true
+  slowHint.value = false
+
+  // nach 3 sekunden hint anzeigen falls server schläft
+  const hintTimer = setTimeout(() => {
+    if (loading.value) slowHint.value = true
+  }, 3000)
 
   try {
     await authStore.login({ email: email.value, password: password.value })
@@ -47,7 +54,9 @@ async function submitLogin() {
   } catch {
     errorMessage.value = 'Invalid email or password'
   } finally {
+    clearTimeout(hintTimer)
     loading.value = false
+    slowHint.value = false
   }
 }
 </script>
@@ -63,6 +72,10 @@ async function submitLogin() {
         <input id="password" v-model="password" type="password" placeholder="123456" />
 
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+
+        <p v-if="slowHint" class="slow-hint">
+          ⏳ Server startet gerade, bitte noch einen Moment...
+        </p>
 
         <button type="submit" :disabled="loading">
           {{ loading ? 'Logging in...' : 'Login' }}
@@ -138,6 +151,13 @@ input:focus {
   color: #fb7185;
   text-align: center;
   margin: 6px 0;
+}
+
+.slow-hint {
+  color: #9ca3af;
+  font-size: 13px;
+  text-align: center;
+  margin: 4px 0;
 }
 
 button {
