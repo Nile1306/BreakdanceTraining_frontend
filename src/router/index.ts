@@ -1,33 +1,31 @@
 import { createRouter, createWebHistory } from 'vue-router'
-//import HomeView from '../views/HomeView.vue'
+import { useAuthStore } from '@/stores/auth'
 import CreateSessions from '../components/DrillComponent.vue'
 import Todo from '../components/Todo.vue'
 import Statistic from '../components/Statistic.vue'
-import Sessions from "../components/Sessions.vue";
+import Sessions from '../components/Sessions.vue'
+import Login from '../components/Login.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-      { path: '/', component: CreateSessions },
-      { path: '/todo', component: Todo },
-      { path: '/stats', component: Statistic },
-       { path: '/sessions', component: Sessions },
-
-  /*  {
-      path: '/',
-      name: 'home',
-
-     // component: HomeView,
-    },
-    {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-    //  component: () => import('../views/AboutView.vue'),
-    },*/
+    { path: '/login', component: Login },
+    { path: '/', component: CreateSessions, meta: { requiresAuth: true } },
+    { path: '/todo', component: Todo, meta: { requiresAuth: true } },
+    { path: '/stats', component: Statistic, meta: { requiresAuth: true } },
+    { path: '/sessions', component: Sessions, meta: { requiresAuth: true } },
   ],
+})
+router.beforeEach((to) => {
+  const authStore = useAuthStore()
+
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+    return '/login'
+  }
+
+  if (to.path === '/login' && authStore.isLoggedIn) {
+    return '/'
+  }
 })
 
 export default router
